@@ -1,9 +1,7 @@
 # 完成主线任务
 import threading
-import time
 
-from data.taskdict import get_taskDict
-from pathlib import Path
+from data.taskdict import *
 from opt import *
 
 class ZX():
@@ -14,7 +12,8 @@ class ZX():
         self.__opt = Opt(monitor)  # 装入模拟器
         self.guideDict = generate_picpath_dict("img\\guide")  # 指引图库
         self.generalDict = generate_picpath_dict("img\\general")  # 通用图像对应地址字典
-        self.taskDict = get_taskDict()
+        self.taskDictZX = get_taskDict_ZX()  # 主线任务字典
+        self.taskDictYMD = get_taskDict_YMD()  # 妖魔道字典
     """
     1、操作层-底层：**************************************************************************
         """
@@ -73,6 +72,25 @@ class ZX():
         with self.__lock:
             return self.__opt.multiWait(path, doa, t, threshold, option)
 
+    def swipe(self, loc, distance=200, direction="v"):
+        """
+            拖住滑动
+            :param loc: 起始点
+            :param distance: 滑动距离，正为向下滑动，负为向上滑动
+            :param direction:
+            :return: None
+            """
+        with self.__lock:
+            self.__opt.swipe(loc,distance,direction)
+
+    def clickPos(self,posKey):
+        """
+            获得点击坐标
+            :return: 点击坐标点（默认随机）
+            """
+        with self.__lock:
+            return self.__opt.clickPos(posKey)
+
     def taskVCR(self):
         """
         任务识别,返回任务编号
@@ -87,6 +105,8 @@ class ZX():
                         if textIn in text:
                             return keyIn
             return False
+
+
 
     """
     2、操作层：**************************************************************************
@@ -123,6 +143,40 @@ class ZX():
             res = self.__opt.multiWait(path, doa, t, threshold, option)
             if res[0]:
                 self.__opt.clickRel(res[1])
+
+    def taskFindClick(self, path,distance=200, threshold=0.8, doa=9, t=300, direction="v"):
+        """
+        任务查找并点击，找不到自动下滑查找
+        :param loc: 起始点
+        :param distance: 滑动距离，正为向下滑动，负为向上滑动
+        :param direction:
+        :param path: 图片路径
+        :param doa: 方位。分10个维度：
+                            0，1，2
+                            3，4，5
+                            6，7，8（矩阵位置）
+        :param threshold: 阈值
+        :return:True,Flase
+        """
+        Flag = False
+        res = self.wait(path,doa,t,threshold)
+        # 判断是否找到
+        if res[0]:
+            Flag = True
+        else:
+            pos = self.clickPos("task_win")
+            self.swipe(pos,distance,direction)
+            random_wait()
+            res = self.wait(path, doa, t, threshold)
+            # 判断是否找到
+            if res[0]:
+                Flag = True
+        if Flag:
+            self.clickRel(res[1])
+            return True
+        return False
+
+
 
     def posKeyTouch(self,posKey):
         """点击posKey"""
@@ -169,7 +223,7 @@ class ZX():
         :return:
         """
         i = 1
-        k = 40.0
+        k = 30.0
         t = k
         while 1:
             time.sleep(int(t))
@@ -179,9 +233,9 @@ class ZX():
             i += 1
             t = ((k * i) ** (1 / i))
             print("再等待%d秒" % (int(t)))
-            
+
     def randomWait(self,a = 1,b = 2):
-        """随机等待，有咱都则延长"""
+        """随机等待，有战斗则延长"""
         random_wait(a, b)
         while 1:
             res = self.wait(self.generalDict["zd"], t=2)
@@ -214,7 +268,7 @@ class ZX():
         if res[0]:
             self.posKeyTouch("xunLuo_qmx")  # 打开驱魔香
         self.close()  # 退出
-        
+
     def action_1xslb(self):
         """
         新手礼包操作，第一次
@@ -224,16 +278,24 @@ class ZX():
         res = self.wait(self.guideDict["xslb"])
         if res[0]:
             print("打开新手礼包")
-            self.randomWait(2,4)
+            random_wait(3,5)
             self.posKeyTouch("tipsBR")
-            self.randomWait(0.5,1)
+            random_wait(0.5,1)
             self.waitTouch(self.guideDict["xslb_lq"])
-            self.randomWait(2, 3)
+            random_wait(2, 3)
             self.posKeyTouch("tipsBR")
-            self.randomWait(2,3)
+            random_wait(2,3)
             self.posKeyTouch("package")
-            self.randomWait(2,3)
+            random_wait(2,3)
             self.posKeyTouch("package_11")
+            # 判断第一个是否弹出装备，若无则点击第二个
+            res1 = self.wait(self.guideDict["xslb_zb2"],t=2)
+            if not res1[0]:
+                self.posKeyTouch("package_12")
+                res2 = self.wait(self.guideDict["xslb_zb2"], t=2)
+                if not res2[0]:
+                    self.posKeyTouch("package_13")
+            # 穿装备
             for i in range(4):
                 self.waitTouch(self.guideDict["xslb_zb2"])
                 time.sleep(1)
@@ -247,9 +309,9 @@ class ZX():
         res = self.wait(self.guideDict["shzh"])
         if res[0]:
             self.clickRel(res[1])
-            self.randomWait(2,3)
+            random_wait(2,3)
             self.posKeyTouch("tipsBR_sh")
-            self.randomWait(2, 3)
+            random_wait(2, 3)
             self.posKeyTouch("tipsBR_sh_yes")
             self.close()
 
@@ -258,38 +320,42 @@ class ZX():
         执行第一次师门任务，到达20级
         :return:
         """
+        times = 1
         while 1:
             # 0 判断是否有确定按钮，有则点击，无则继续（规避驱魔香）
-            self.waitTouch(self.generalDict["yes"], t=2)
+            if times == 1:
+                self.waitTouch(self.generalDict["yes"], t=2)
+                times += 1
             # 1、判断是否有新手礼包，有则退出
             res1 = self.wait(self.generalDict["xslb"], t=2)
             if res1[0]:
                 print("到达20级")
-                self.randomWait(4,6)
+                # 点击领取新手礼包
+                self.posKeyTouch("tipsBR")
+                random_wait(4,6)
+                self.waitTouch(self.guideDict["xslb_lq"])
+                # 守护召唤
+                self.action_shzh()
+                # 关闭角色提示
                 self.posKeyTouch("role")
                 self.close()
-                # 领取新手礼包
-                self.action_shzh()
-                self.posKeyTouch("winLeftFun04")
-                self.randomWait()
-                self.waitTouch(self.generalDict["fuli_xslb"])
-                self.waitTouch(self.guideDict["xslb_lq"])
                 # 开始装备武器
                 self.randomWait(2, 3)
                 self.posKeyTouch("package")
-                self.randomWait()
+                random_wait()
                 self.posKeyTouch("package_12")
                 for i in range(7):
                     self.waitTouch(self.guideDict["xslb_zb2"])  # 装备
                     time.sleep(1)
+                # 手镯左右手装备
                 self.waitTouch(self.guideDict["xslb_zb2_left"])  # 装备
-                self.randomWait()
+                random_wait()
                 self.posKeyTouch("package_23")
                 self.waitTouch(self.guideDict["xslb_zb2"])  # 装备
                 self.waitTouch(self.guideDict["xslb_zb2_right"])  # 装备
-                self.randomWait()
+                random_wait()
                 self.posKeyTouch("package_zl")
-                self.randomWait()
+                random_wait()
                 self.close()
                 return True
             # 2、判断是否有师门任务，无则退出
@@ -360,16 +426,16 @@ class ZX():
                         # 若无则重新进入循环
                         elif res3_1_2_1[1] == "renwu":
                             continue
-    
+
     def action_ex000_23(self):
         """基础操作：任务-前往-判断是否有跳过,有则返回True,无则返回False"""
-        self.randomWait(2,3)
+        random_wait(2,3)
         self.waitTouch(self.generalDict["renwu"])
         self.waitTouch(self.generalDict["renwu_qianwang"])
-        return self.jump(2)
+        return self.jump(4)
 
     def action_ex23(self):
-        """任务23的恶作剧部分"""
+        """任务20-29,23的恶作剧部分"""
         self.posKeyTouch("map")
         self.waitTouch(self.generalDict["ditu_xym"])  # 前往轩辕庙
         times_1 = 0  # 外循环次数
@@ -381,7 +447,7 @@ class ZX():
             # 如果找到跳过则返回TRUE，表示完成
             if ret:
                 return True
-            # 如果呼叫3次任然未完成任务则准备切换地图，进入第二层循环
+            # 如果呼叫3次仍然未完成任务则准备切换地图，进入第二层循环
             if times_1 > 3:
                 while times_3 < 12:
                     times_2 += 1
@@ -410,24 +476,33 @@ class ZX():
             self.close()
             return False
         self.waitTouch(self.generalDict["renwu_qianwang"])
-        self.randomWait(5, 8)
+        random_wait(5, 8)
         self.mWaitTouch(self.guideDict["dialog"])
         self.jump()
         # 指引
-        self.randomWait(2, 3)
+        random_wait(2, 3)
         # 点击巡逻
         self.posKeyTouch("winTopFun01")
         # 点击开双
-        self.randomWait()
+        random_wait()
         self.posKeyTouch("xunLuo_double")
         # 点击关闭
-        self.randomWait()
+        random_wait()
         self.close()
         # 第二次
         self.waitTouch(self.generalDict["renwu"])
         self.waitTouch(self.generalDict["renwu_qianwang"])
-        self.randomWait(5, 8)
+        random_wait(5, 8)
         self.mWaitTouch(self.generalDict["dialog_chubao"])
+
+    """
+    副本1：妖魔道任务**************************************************************************
+    """
+
+    def run_ymd(self):
+        """完成妖魔道任务"""
+        # todo 妖魔道
+
 
     """
     5、应用层-动作集：**************************************************************************
@@ -438,27 +513,30 @@ class ZX():
         action004:前往-【对话框】-跳过-战斗-跳过
         action005:前往-跳过-【对话框】-战斗-跳过
     """
-    def action000(self):
+    def action000(self,taskKey = "zhuxian"):
         """
         任务-主线or妖魔道识别
         :return:
         """
         self.randomWait(3,5)
         # 1、点击任务
-        print("点击任务")
         self.wait(self.generalDict["renwu"])
         self.posKeyTouch("task")
         # 2、寻找并点击任务
-        print("点击主线")
         if self.times == 1:
-            self.waitTouch(self.generalDict["zhuxian"])
+            self.taskFindClick(self.generalDict[taskKey])
             self.times += 1
         # 3、图像识别，判断任务
         for i in range(10):
             res = self.taskVCR()
             if res:
                 break
-        return res
+            else:
+                raise Exception("图像识别失败，请检查错误原因！代码行474")
+        if taskKey == "zhuxian":
+            return 1,res
+        else:
+            return 2,res
 
     def action001(self):
         """
@@ -529,7 +607,7 @@ class ZX():
         self.mWaitTouch(self.generalDict["dialog_zhuxian"])
         self.waitZD()
         self.jump()  # 跳过
-    
+
 
     """
     6、行动层：**************************************************************************
@@ -540,19 +618,17 @@ class ZX():
         action004:前往-【对话框】-跳过-战斗-跳过
         action005:前往-跳过-【对话框】-战斗-跳过
     """
-    def actions(self,res):
+    def actions_zx(self,res):
         """
-        任务识别并执行
+        任务识别并执行-主线
         :param res: 任务编号或者False
         :return: 执行任务返回True
         """
         if res:
-            print("当前识别任务编号为：", res)
+            print("当前识别主线任务编号为：", res)
             if res > 33:
                 self.action_shzh()
             # 通用任务动作
-
-
             if res in [7,12,16,17,18,25,27,30,40,43,64,66,67,]:
                 print('正在执行任务***********************：', res)
                 self.action001()
@@ -563,7 +639,7 @@ class ZX():
                 print('正在执行任务***********************：', res)
                 self.action002()
                 if res in [70,71]:
-                    self.randomWait(4,6)
+                    random_wait(4,6)
 
                 print('任务完成***************************：', res)
             elif res in [11,15,28,41,42,47,35,
@@ -591,22 +667,22 @@ class ZX():
             elif res in [1]:
                 print('正在执行任务***********************：', res)
                 self.action002()
-                self.randomWait()
+                random_wait()
                 self.posKeyTouch("tipsBR")
                 return True
                 print('任务完成***************************：', res)
             elif res in [2]:
                 print('正在执行任务***********************：', res)
                 self.action002()
-                self.randomWait(2,3)
+                random_wait(2,3)
                 self.posKeyTouch("tipsBR")
-                self.randomWait(2,3)
+                random_wait(2,3)
                 self.posKeyTouch("tipsBR")
                 print('任务完成***************************：', res)
             elif res in [3]:
                 print('正在执行任务***********************：', res)
                 self.action002()
-                self.randomWait(0.2, 0.5)
+                random_wait()
                 self.waitTouch(self.generalDict["lingqu"])
                 print('任务完成***************************：', res)
             elif res in [4]:
@@ -633,15 +709,15 @@ class ZX():
                 self.waitTouch(self.guideDict["jiadian_gws"])
                 self.waitTouch(self.guideDict["jiadian_gws_yes"])
                 self.jump()
-                self.randomWait()
+                random_wait()
                 self.posKeyTouch("role")
-                self.randomWait()
+                random_wait()
                 self.posKeyTouch("role_jn")
-                self.randomWait()
+                random_wait()
                 self.posKeyTouch("role_jn_leverUp10")
-                self.randomWait()
+                random_wait()
                 self.posKeyTouch("role_jn_leverUp10")
-                self.randomWait()
+                random_wait()
                 self.posKeyTouch("role_close")
                 print('任务完成***************************：', res)
             elif res in [23]:
@@ -663,16 +739,15 @@ class ZX():
             elif res in [33]:
                 print('正在执行任务***********************：', res)
                 self.action002()
-                # todo
                 self.action_1shzh()
                 print('任务完成***************************：', res)
             elif res in [37]:
                 print('正在执行任务***********************：', res)
                 self.action002()
                 # 师门指引
-                self.randomWait(2, 3)
+                random_wait(2, 3)
                 self.posKeyTouch("winTopFun01")
-                self.randomWait()
+                random_wait()
                 self.posKeyTouch("huoDong_rw11")
                 self.waitTouch(self.generalDict["dialog_shimen"])
                 self.jump()
@@ -684,16 +759,16 @@ class ZX():
                 self.waitTouch(self.generalDict["lingqu"])
                 self.jump()
                 self.yes()
-                self.randomWait()
+                random_wait()
                 self.posKeyTouch("pet_cz")
                 self.close()
                 print('任务完成***************************：', res)
             elif res in [72]:
                 print('正在执行任务***********************：', res)
                 self.close()
-                self.randomWait()
+                random_wait()
                 self.action_ex23()
-                self.randomWait(4, 5)
+                random_wait(4, 5)
                 print('任务完成***************************：', res)
             # 跳出去进行其他任务！
             elif res in [49]:
@@ -705,6 +780,7 @@ class ZX():
                 print('正在执行任务***********************：', res)
                 self.close()
                 self.zy20()
+                self.run_ymd()
                 print('任务完成***************************：', res)
             else:
                 print("不是可识别任务！")
@@ -716,10 +792,60 @@ class ZX():
         print("不是可识别任务！")
         return False
 
+    def actions_ymd(self,res):
+        """
+        任务识别并执行-妖魔道
+        :param res: 任务编号或者False
+        :return: 执行任务返回True
+        """
+        if res:
+            self.action_shzh()
+            # 通用任务动作
+            if res in [2]:
+                print('正在执行任务***********************：', res)
+                self.action001()
+                print('任务完成***************************：', res)
+            elif res in [1,4]:
+                print('正在执行任务***********************：', res)
+                self.action002()
+                print('任务完成***************************：', res)
+            elif res in [3]:
+                print('正在执行任务***********************：', res)
+                self.action003()
+                print('任务完成***************************：', res)
+            elif res in []:
+                print('正在执行任务***********************：', res)
+                self.action004()
+                print('任务完成***************************：', res)
+            elif res in []:
+                print('正在执行任务***********************：', res)
+                self.action005()
+                print('任务完成***************************：', res)
+            elif res in []:
+                print('正在执行任务***********************：', res)
+                self.action006()
+                print('任务完成***************************：', res)
+            elif res in []:
+                print('正在执行任务***********************：', res)
+                self.action007()
+                print('任务完成***************************：', res)
+            else:
+                print("该任务未编译")
+            return True
+
     def run(self):
         Flag = True
+        resStart = self.wait(self.generalDict["startRole"],t=5)
+        if resStart[0]:
+            self.startRole()
         while Flag:
-            Flag = self.actions(self.action000())
+            res = self.action000()
+            if res[0] == 1:
+                "主线任务"
+                Flag = self.actions_zx(res[1])
+            elif res[0] == 2:
+                "妖魔道"
+                Flag = self.actions_ymd(res[1])
         self.close()
         print("任务完成")
 

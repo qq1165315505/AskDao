@@ -137,6 +137,8 @@ class GeneralPos():
             "zd_daoJu": (895, 390, 45, 45),  # 战斗-道具
             # 战斗-自动
             "zd_zd": (895, 472, 45, 45),  # 战斗-自动
+            # 任务窗口位置
+            "task_win": (140, 200, 100, 60),  # 战斗-自动
 
         }
         self.random = random
@@ -147,7 +149,7 @@ class GeneralPos():
         print("模拟器窗口坐标：", self.x, self.y, self.w, self.h)
         print("游戏窗口坐标：",self.game_x,self.game_y,self.game_w,self.game_h)
         safe_path = "game_shot.png"
-        (x1, y1, w1, h1) = self.get_pos_model("zd_faShu_l1_org")
+        (x1, y1, w1, h1) = self.get_pos_model("task_win")
         print("相对坐标为：",(x1, y1, w1, h1))
         # 游戏窗口截屏
         set_ForegroundWin(self.hwmd)
@@ -221,6 +223,6 @@ class GeneralPos():
         return (x,y)
 
 if __name__ == "__main__":
-    hwnd = win32gui.FindWindow(0,"雷电模拟器")
+    hwnd = win32gui.FindWindow(0,"18878718654木")
     Pos = GeneralPos(hwnd,rel=True)
     Pos.draw_rect()

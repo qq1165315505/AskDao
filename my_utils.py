@@ -145,9 +145,9 @@ def windShot(hwnd):
     saveDC.SelectObject(saveBitMap)
     # 截取从左上角（0，0）长宽为（w，h）的图片
     saveDC.BitBlt((0, 0), (w, h), mfcDC, (0, 0), win32con.SRCCOPY)
-    saveBitMap.SaveBitmapFile(saveDC, "temp_img/screenshot.png")
-    img_out = cv2.imread("temp_img/screenshot.png")
-    os.remove("temp_img/screenshot.png")
+    saveBitMap.SaveBitmapFile(saveDC, "screenshot.png")
+    img_out = cv2.imread("screenshot.png")
+    os.remove("screenshot.png")
     return img_out,(x,y,w,h)
 
 def windShots(hwnd,rect):
@@ -173,9 +173,9 @@ def windShots(hwnd,rect):
     saveDC.SelectObject(saveBitMap)
     # 截取从左上角（0，0）长宽为（w，h）的图片
     saveDC.BitBlt((0, 0), (w, h), mfcDC, (x, y), win32con.SRCCOPY)
-    saveBitMap.SaveBitmapFile(saveDC, "temp_img/shot.png")
-    img_out = cv2.imread("temp_img/shot.png")
-    os.remove("temp_img/shot.png")
+    saveBitMap.SaveBitmapFile(saveDC, "shot.png")
+    img_out = cv2.imread("shot.png")
+    os.remove("shot.png")
     return img_out
 
 def desize(img,h):
